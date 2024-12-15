@@ -20,8 +20,11 @@ import (
 	"github.com/libp2p/go-libp2p/core/event"
 	"github.com/libp2p/go-libp2p/core/network"
 	"github.com/libp2p/go-libp2p/core/peer"
+	"github.com/libp2p/go-libp2p/p2p/protocol/holepunch"
 	libp2pquic "github.com/libp2p/go-libp2p/p2p/transport/quic"
 	"github.com/libp2p/go-libp2p/p2p/transport/quicreuse"
+	ma "github.com/multiformats/go-multiaddr"
+	mafmt "github.com/multiformats/go-multiaddr-fmt"
 	"github.com/quic-go/quic-go"
 )
 
@@ -52,8 +55,7 @@ func runServer(port int) {
 		libp2p.Identity(priv),
 		libp2p.ForceReachabilityPrivate(),
 		libp2p.EnableAutoRelayWithPeerSource(func(context.Context, int) <-chan peer.AddrInfo { return peerChan }),
-		// libp2p.EnableAutoRelayWithStaticRelays(dht.GetDefaultBootstrapPeerAddrInfos()),
-		libp2p.EnableHolePunching(),
+		libp2p.EnableHolePunching(holepunch.WithAddrFilter(&quicAddrFilter{})),
 		libp2p.Transport(libp2pquic.NewTransport),
 		libp2p.ListenAddrStrings(fmt.Sprintf("/ip4/0.0.0.0/udp/%d/quic-v1", port)),
 		libp2p.QUICReuse(newReuse),
@@ -82,7 +84,6 @@ func runServer(port int) {
 	log.Println("DHT bootstrap complete")
 
 	go func() {
-		fmt.Println("subscribing to peer connectedness changed event")
 		sub, err := h.EventBus().Subscribe(new(event.EvtPeerConnectednessChanged))
 		if err != nil {
 			log.Fatal("failed to subscribe to peer connectedness changed event: ", err)
@@ -90,7 +91,6 @@ func runServer(port int) {
 		defer sub.Close()
 		for ev := range sub.Out() {
 			e := ev.(event.EvtPeerConnectednessChanged)
-			// fmt.Println("peer connectedness changed:", e.Peer, e.Connectedness)
 			if e.Connectedness == network.Connected {
 				select {
 				case peerChan <- peer.AddrInfo{
@@ -123,7 +123,6 @@ type wrappedQUICTransport struct {
 }
 
 func (t *wrappedQUICTransport) Listen(tlsConf *tls.Config, conf *quic.Config) (quicreuse.QUICListener, error) {
-	fmt.Println("wrappedQUICTransport.Listen")
 	wrappedConf := &tls.Config{
 		GetConfigForClient: func(info *tls.ClientHelloInfo) (*tls.Config, error) {
 			if slices.Contains(info.SupportedProtos, "raw") {
@@ -186,6 +185,29 @@ start:
 	return conn, nil
 }
 
+type quicAddrFilter struct{}
+
+func (f *quicAddrFilter) filterQUICIPv4(_ peer.ID, maddrs []ma.Multiaddr) []ma.Multiaddr {
+	return ma.FilterAddrs(maddrs, func(addr ma.Multiaddr) bool {
+		first, _ := ma.SplitFirst(addr)
+		if first == nil {
+			return false
+		}
+		if first.Protocol().Code != ma.P_IP4 {
+			return false
+		}
+		return isQUICAddr(addr)
+	})
+}
+
+func (f *quicAddrFilter) FilterRemote(remoteID peer.ID, maddrs []ma.Multiaddr) []ma.Multiaddr {
+	return f.filterQUICIPv4(remoteID, maddrs)
+}
+
+func (f *quicAddrFilter) FilterLocal(remoteID peer.ID, maddrs []ma.Multiaddr) []ma.Multiaddr {
+	return f.filterQUICIPv4(remoteID, maddrs)
+}
+
 func generateSelfSignedCert() (*tls.Certificate, error) {
 	// Generate a new ed25519 key pair
 	pub, priv, err := ed25519.GenerateKey(rand.Reader)
@@ -215,4 +237,8 @@ func generateSelfSignedCert() (*tls.Certificate, error) {
 	}
 
 	return cert, nil
+}
+
+func isQUICAddr(a ma.Multiaddr) bool {
+	return mafmt.And(mafmt.IP, mafmt.Base(ma.P_UDP), mafmt.Base(ma.P_QUIC_V1)).Matches(a)
 }
