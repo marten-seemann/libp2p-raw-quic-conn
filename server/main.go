@@ -9,14 +9,12 @@ import (
 	"fmt"
 	"log"
 	"math/big"
-	mrand "math/rand"
 	"net"
 	"slices"
 	"time"
 
 	"github.com/libp2p/go-libp2p"
-	"github.com/libp2p/go-libp2p-kad-dht"
-	"github.com/libp2p/go-libp2p/core/crypto"
+	dht "github.com/libp2p/go-libp2p-kad-dht"
 	"github.com/libp2p/go-libp2p/core/event"
 	"github.com/libp2p/go-libp2p/core/network"
 	"github.com/libp2p/go-libp2p/core/peer"
@@ -48,11 +46,8 @@ func runServer(port int) {
 		}
 		return reuse, nil
 	}
-	r := mrand.New(mrand.NewSource(2))
-	priv, _, _ := crypto.GenerateEd25519Key(r)
 	peerChan := make(chan peer.AddrInfo, 32)
 	h, err := libp2p.New(
-		libp2p.Identity(priv),
 		libp2p.ForceReachabilityPrivate(),
 		libp2p.EnableAutoRelayWithPeerSource(func(context.Context, int) <-chan peer.AddrInfo { return peerChan }),
 		libp2p.EnableHolePunching(holepunch.WithAddrFilter(&quicAddrFilter{})),
