@@ -215,8 +215,8 @@ github.com/libp2p/go-yamux/v4 v4.0.1 h1:FfDR4S1wj6Bw2Pqbc8Uz7pCxeRBPbwsBbEdfwiCy
 github.com/libp2p/go-yamux/v4 v4.0.1/go.mod h1:NWjl8ZTLOGlozrXSOZ/HlfG++39iKNnM5wwmtQP1YB4=
 github.com/lunixbochs/vtclean v1.0.0/go.mod h1:pHhQNgMf3btfWnGBVipUOjRYhoOsdGqdm/+2c2E2WMI=
 github.com/mailru/easyjson v0.0.0-20190312143242-1de009706dbe/go.mod h1:C1wdFJiN94OJF2b5HbByQZoLdCWB1Yqtg26g4irojpc=
-github.com/marten-seemann/go-libp2p v0.0.0-20241215133853-3f315441c657 h1:Gfr9zQSGDye9Urd1v10VYeouMGrICdEzM6e9kPFRvRo=
-github.com/marten-seemann/go-libp2p v0.0.0-20241215133853-3f315441c657/go.mod h1:M8CRRywYkqC6xKHdZ45hmqVckBj5z4mRLIMLWReypz8=
+github.com/marten-seemann/go-libp2p v0.0.0-20241216151522-0dc4805d89d1 h1:wMgRnKBUof4XX88wJrsSaGCakXxns2hR9zYI90H1gX0=
+github.com/marten-seemann/go-libp2p v0.0.0-20241216151522-0dc4805d89d1/go.mod h1:M8CRRywYkqC6xKHdZ45hmqVckBj5z4mRLIMLWReypz8=
 github.com/marten-seemann/tcp v0.0.0-20210406111302-dfbc87cc63fd h1:br0buuQ854V8u83wA0rVZ8ttrq5CpaPZdvrK0LP2lOk=
 github.com/marten-seemann/tcp v0.0.0-20210406111302-dfbc87cc63fd/go.mod h1:QuCEs1Nt24+FYQEqAAncTDPJIuGs+LxK1MCiFL25pMU=
 github.com/mattn/go-isatty v0.0.14/go.mod h1:7GGIvUiUoEMVVmxf/4nioHXj79iQHKdU27kJ6hsGG94=

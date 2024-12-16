@@ -1,6 +1,6 @@
 module github.com/marten-seemann/libp2p-raw-quic-conn
 
-replace github.com/libp2p/go-libp2p => github.com/marten-seemann/go-libp2p v0.0.0-20241215133853-3f315441c657
+replace github.com/libp2p/go-libp2p => github.com/marten-seemann/go-libp2p v0.0.0-20241216151522-0dc4805d89d1
 
 go 1.23
 
