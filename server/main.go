@@ -63,6 +63,7 @@ func runServer(port int) {
 		fmt.Printf("listening on %s/p2p/%s\n", addr, h.ID())
 	}
 
+	// Advertise our addresses in the DHT.
 	ipfsDHT, err := dht.New(
 		context.Background(),
 		h,
@@ -113,6 +114,10 @@ func runServer(port int) {
 	}
 }
 
+// The wrappedQUICTransport does 2 things:
+//  1. It intercepts the `Listen` call, and adds selection logic for a separate
+//     (i.e. independent of libp2p's) tls.Config.
+//  2. It adds a listener, from which the intercepted QUIC connections can be accepted.
 type wrappedQUICTransport struct {
 	*quic.Transport
 }
@@ -120,6 +125,9 @@ type wrappedQUICTransport struct {
 func (t *wrappedQUICTransport) Listen(tlsConf *tls.Config, conf *quic.Config) (quicreuse.QUICListener, error) {
 	wrappedConf := &tls.Config{
 		GetConfigForClient: func(info *tls.ClientHelloInfo) (*tls.Config, error) {
+			// In this example, we assume that we want to intercept QUIC connection that use the "raw" ALPN token.
+			// Any field on the tls.ClientHelloInfo can be used to select the tls.Config to use,
+			// for example the server name.
 			if slices.Contains(info.SupportedProtos, "raw") {
 				cert, err := generateSelfSignedCert()
 				if err != nil {
@@ -130,7 +138,7 @@ func (t *wrappedQUICTransport) Listen(tlsConf *tls.Config, conf *quic.Config) (q
 					NextProtos:   []string{"raw"},
 				}, nil
 			}
-			fmt.Println("using original tls.Config", tlsConf.ServerName, tlsConf.GetConfigForClient != nil)
+			// use libp2p's tls.Config
 			if tlsConf.GetConfigForClient != nil {
 				return tlsConf.GetConfigForClient(info)
 			}

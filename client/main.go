@@ -39,6 +39,9 @@ func main() {
 }
 
 func runClient(target peer.ID) (quic.Connection, error) {
+	// Create a quic.Transport.
+	// We can't let libp2p do that, since we need to be able to use this transport
+	// to dial raw QUIC connections to the target peer.
 	udpConn, err := net.ListenUDP("udp4", &net.UDPAddr{IP: net.IPv4zero, Port: 0})
 	if err != nil {
 		return nil, fmt.Errorf("failed to create UDP listener: %w", err)
@@ -66,6 +69,9 @@ func runClient(target peer.ID) (quic.Connection, error) {
 	defer h.Close()
 	log.Println("I am:", h.ID())
 
+	// Subscribe to peer connectedness changed events.
+	// This allows us to detect when a relayed or a direct connection
+	// to the target peer is established, respectively.
 	connected := make(chan struct{}, 1)
 	go func() {
 		sub, err := h.EventBus().Subscribe(new(event.EvtPeerConnectednessChanged))
@@ -88,6 +94,8 @@ func runClient(target peer.ID) (quic.Connection, error) {
 		}
 	}()
 
+	// Connect to the DHT.
+	// This allows us to discover the target peer's addresses.
 	ipfsDHT, err := dht.New(
 		context.Background(),
 		h,
@@ -102,8 +110,8 @@ func runClient(target peer.ID) (quic.Connection, error) {
 		return nil, fmt.Errorf("failed to bootstrap DHT: %w", err)
 	}
 
-	// give the DHT some time to boot up,
-	// and Identify to discover our public addresses
+	// Give the DHT some time to boot up,
+	// and Identify to discover our public addresses.
 	time.Sleep(5 * time.Second)
 
 	ai, err := ipfsDHT.FindPeer(context.Background(), target)
@@ -117,7 +125,8 @@ func runClient(target peer.ID) (quic.Connection, error) {
 	log.Println(msg)
 	h.Peerstore().AddAddrs(target, ai.Addrs, time.Hour)
 
-	// 1st step: check we have a public QUIC address for the target
+	// 1st step: check if we have a public QUIC address for the target
+	// If we do, we can directly dial it.
 	var udpAddr *net.UDPAddr
 	for _, a := range h.Peerstore().Addrs(target) {
 		if manet.IsPublicAddr(a) && isQUICAddr(a) {
@@ -132,17 +141,25 @@ func runClient(target peer.ID) (quic.Connection, error) {
 		return dialQUIC(tr, udpAddr)
 	}
 
-	// 2nd step: connect to the target via a relay address
+	// 2nd step: connect to the target via a relay address.
+	// If we don't have a public QUIC address for the target,
+	// we need to connect to it via a relay address.
 	if err := h.Connect(context.Background(), ai); err != nil {
 		return nil, fmt.Errorf("failed to connect to peer: %w", err)
 	}
 
+	// As soon as the relayed peer accepts the connection via the relay,
+	// it tries to establish a direction connection back to us using the DCUtR protocol.
+	// We wait for this connection to be established.
 	select {
 	case <-connected:
 	case <-time.After(5 * time.Second):
 		return nil, fmt.Errorf("timed out waiting for direct (e.g. hole-punched) connection")
 	}
 
+	// Now that we have a direct connection to the target, we can dial another
+	// QUIC connection on the same 4-tupe. This works since QUIC demultiplexes connections
+	// based on their connection ID.
 	var directAddr *net.UDPAddr
 	for _, c := range h.Network().ConnsToPeer(target) {
 		if a := c.RemoteMultiaddr(); isQUICAddr(a) {
