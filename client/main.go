@@ -170,6 +170,26 @@ func runClient(target peer.ID) (quic.Connection, error) {
 			break
 		}
 	}
+	// Due to https://github.com/libp2p/go-libp2p/issues/3101, we can't rely on the Connectedness connection state,
+	// as it doesn't distinguish between direct and connections via an unlimited relay.
+	start := time.Now()
+	ticker := time.NewTicker(25 * time.Millisecond)
+	defer ticker.Stop()
+connectLoop:
+	for now := range ticker.C {
+		if now.Sub(start) > 5*time.Second {
+			break
+		}
+		for _, c := range h.Network().ConnsToPeer(target) {
+			if a := c.RemoteMultiaddr(); isQUICAddr(a) {
+				directAddr, err = quicAddrToNetAddr(a)
+				if err != nil {
+					return nil, fmt.Errorf("failed to convert multiaddr to net.UDPAddr: %w", err)
+				}
+				break connectLoop
+			}
+		}
+	}
 	if directAddr == nil {
 		return nil, fmt.Errorf("failed to find a direct QUIC address for peer %s after hole punching", target)
 	}

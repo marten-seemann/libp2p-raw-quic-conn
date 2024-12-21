@@ -56,7 +56,7 @@ func runServer(port int) {
 		libp2p.QUICReuse(newReuse),
 	)
 	if err != nil {
-		log.Fatal("failed to create second libp2p host: ", err)
+		log.Fatal("failed to create libp2p host: ", err)
 	}
 	defer h.Close()
 	for _, addr := range h.Addrs() {
