@@ -41,9 +41,16 @@ func runServer(port int) {
 		if err != nil {
 			return nil, fmt.Errorf("failed to create reuse: %w", err)
 		}
-		if err := reuse.AddTransport("udp4", &wrappedQUICTransport{tr}, udpConn); err != nil {
+		transportDone, err := reuse.LendTransport("udp4", &wrappedQUICTransport{tr}, udpConn)
+		if err != nil {
 			return nil, fmt.Errorf("failed to add transport to reuse: %w", err)
 		}
+		go func() {
+			// libp2p's ConnectionManager will close this channel once it's done with this transport.
+			// It's then safe to close it.
+			<-transportDone
+			tr.Close()
+		}()
 		return reuse, nil
 	}
 	peerChan := make(chan peer.AddrInfo, 32)
@@ -110,7 +117,7 @@ func runServer(port int) {
 		for _, addr := range ev.(event.EvtLocalAddressesUpdated).Current {
 			msg += fmt.Sprintf("\t%s\n", addr.Address)
 		}
-		log.Printf(msg)
+		log.Print(msg)
 	}
 }
 
